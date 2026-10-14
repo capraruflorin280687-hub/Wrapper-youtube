@@ -13,15 +13,25 @@
     document.addEventListener(ev, e => e.stopImmediatePropagation(), true);
   });
 
-  // 2. Eliminare reclame din răspunsurile player-ului
+  // 2. Eliminare reclame din date
   const AD_KEYS = ['adPlacements', 'playerAds', 'adSlots', 'adBreakHeartbeatParams'];
   const strip = o => {
     if (o && typeof o === 'object') {
-      AD_KEYS.forEach(k => { if (k in o) delete o[k]; });
+      for (let i = 0; i < AD_KEYS.length; i++) { if (AD_KEYS[i] in o) delete o[AD_KEYS[i]]; }
       if (o.playerResponse) strip(o.playerResponse);
     }
     return o;
   };
+
+  const _parse = JSON.parse;
+  JSON.parse = function () {
+    const r = _parse.apply(this, arguments);
+    if (r && typeof r === 'object' && (r.adPlacements || r.playerAds || r.adSlots || r.playerResponse)) strip(r);
+    return r;
+  };
+
+  const _rj = Response.prototype.json;
+  Response.prototype.json = function () { return _rj.call(this).then(strip); };
 
   let _ipr;
   try {
@@ -29,19 +39,6 @@
       get: () => _ipr, set: v => { _ipr = strip(v); }, configurable: true
     });
   } catch (e) {}
-
-  const _fetch = window.fetch;
-  window.fetch = async function (...a) {
-    const r = await _fetch.apply(this, a);
-    try {
-      const u = typeof a[0] === 'string' ? a[0] : (a[0] && a[0].url) || '';
-      if (u.includes('/youtubei/v1/player') || u.includes('/youtubei/v1/next')) {
-        const j = strip(await r.clone().json());
-        return new Response(JSON.stringify(j), { status: r.status, statusText: r.statusText, headers: r.headers });
-      }
-    } catch (e) {}
-    return r;
-  };
 
   // 3. Reguli cosmetice
   const SELECTORS = [
@@ -66,5 +63,5 @@
     }
     document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button')
       .forEach(b => b.click());
-  }, 500);
+  }, 400);
 })();
