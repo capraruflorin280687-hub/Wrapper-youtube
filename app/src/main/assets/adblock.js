@@ -23,9 +23,6 @@
     return o;
   };
 
-  const _parse = JSON.parse;
-  JSON.parse = function () { return strip(_parse.apply(this, arguments)); };
-
   let _ipr;
   try {
     Object.defineProperty(window, 'ytInitialPlayerResponse', {
@@ -69,5 +66,5 @@
     }
     document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button')
       .forEach(b => b.click());
-  }, 300);
+  }, 500);
 })();
