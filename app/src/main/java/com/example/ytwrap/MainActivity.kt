@@ -2,6 +2,7 @@ package com.example.ytwrap
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -17,8 +18,15 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import java.io.ByteArrayInputStream
 
+/** WebView care nu află niciodată că fereastra e ascunsă, deci nu pune media pe pauză. */
+class BgWebView(c: Context) : WebView(c) {
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        if (visibility != View.GONE) super.onWindowVisibilityChanged(View.VISIBLE)
+    }
+}
+
 class MainActivity : AppCompatActivity() {
-    private lateinit var web: WebView
+    private lateinit var web: BgWebView
     private lateinit var root: FrameLayout
     private lateinit var adJs: String
     private var customView: View? = null
@@ -77,8 +85,13 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 33)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
 
+        // Serviciul rulează cât timp aplicația există, pornit cât încă e în prim-plan
+        try {
+            startForegroundService(Intent(this, KeepAliveService::class.java))
+        } catch (e: Exception) { }
+
         adJs = assets.open("adblock.js").bufferedReader().readText()
-        web = WebView(this)
+        web = BgWebView(this)
         web.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         root = FrameLayout(this)
         root.setBackgroundColor(0xFF000000.toInt())
@@ -131,14 +144,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        startForegroundService(Intent(this, KeepAliveService::class.java))
         web.onResume()
         web.resumeTimers()
     }
 
-    override fun onStart() {
-        super.onStart()
+    override fun onDestroy() {
         stopService(Intent(this, KeepAliveService::class.java))
+        super.onDestroy()
     }
 
     override fun onSaveInstanceState(o: Bundle) {
