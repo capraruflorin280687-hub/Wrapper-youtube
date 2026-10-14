@@ -7,8 +7,9 @@
     Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
     Object.defineProperty(document, 'webkitHidden', { get: () => false, configurable: true });
     Object.defineProperty(document, 'webkitVisibilityState', { get: () => 'visible', configurable: true });
+    document.hasFocus = () => true;
   } catch (e) {}
-  ['visibilitychange', 'webkitvisibilitychange', 'pagehide', 'blur'].forEach(ev => {
+  ['visibilitychange', 'webkitvisibilitychange', 'pagehide', 'blur', 'freeze'].forEach(ev => {
     window.addEventListener(ev, e => e.stopImmediatePropagation(), true);
     document.addEventListener(ev, e => e.stopImmediatePropagation(), true);
   });
