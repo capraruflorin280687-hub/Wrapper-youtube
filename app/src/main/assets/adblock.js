@@ -41,30 +41,43 @@
     });
   } catch (e) {}
 
-  // 3. Reguli cosmetice: reclame
-  const SELECTORS = [
+  // 3. Reguli cosmetice permanente: reclame și bannere "deschide aplicația"
+  const ALWAYS = [
     'ytm-promoted-sparkles-web-renderer', 'ytm-promoted-video-renderer',
     'ytm-companion-ad-renderer', 'ytm-ad-slot-renderer', 'ytm-statement-banner-renderer',
     'ytd-ad-slot-renderer', 'ytd-promoted-sparkles-web-renderer', '.ytp-ad-overlay-container',
     '.ytp-ad-module', '#masthead-ad', 'ytm-rich-item-renderer:has(ytm-ad-slot-renderer)',
-    'ytd-in-feed-ad-layout-renderer'
+    'ytd-in-feed-ad-layout-renderer', 'ytm-open-app-banner', 'ytm-app-promo-renderer',
+    'ytm-mealbar-promo-renderer', 'ytm-upsell-dialog-renderer'
   ];
+  const base = document.createElement('style');
+  base.textContent = ALWAYS.join(',') + '{display:none!important}';
+  (document.head || document.documentElement).appendChild(base);
 
-  // 4. Bara de sus (YouTube / Deschide aplicația) + banner "deschide în aplicație"
-  const TOPBAR = [
-    'ytm-mobile-topbar-renderer', 'header.mobile-topbar-header', '.mobile-topbar-header',
-    'ytm-open-app-banner', 'ytm-app-promo-renderer', 'ytm-mealbar-promo-renderer',
-    'ytm-upsell-dialog-renderer'
-  ];
-
-  const style = document.createElement('style');
-  style.textContent =
-    SELECTORS.join(',') + '{display:none!important}' +
-    TOPBAR.join(',') + '{display:none!important;height:0!important;min-height:0!important}' +
+  // 4. Reguli DOAR pentru pagina video: se adaugă pe /watch, se scot în rest
+  const WATCH_CSS =
+    'ytm-mobile-topbar-renderer,header.mobile-topbar-header,.mobile-topbar-header' +
+      '{display:none!important;height:0!important;min-height:0!important}' +
     ':root{--ytm-topbar-height:0px!important;--ytm-mobile-topbar-height:0px!important}' +
-    'ytm-app,ytm-browse,ytm-watch,ytm-search,ytm-single-column-watch-next-results-renderer{padding-top:0!important;margin-top:0!important}' +
-    '#player-container-id,.player-container,#player,.sticky-player{top:0!important;margin-top:0!important}';
-  (document.head || document.documentElement).appendChild(style);
+    'ytm-app,ytm-watch,ytm-single-column-watch-next-results-renderer' +
+      '{padding-top:0!important;margin-top:0!important}' +
+    '#player-container-id,.player-container,#player,.sticky-player' +
+      '{top:0!important;margin-top:0!important}';
+
+  let watchStyle = null;
+  const updatePage = () => {
+    const isWatch = location.pathname === '/watch';
+    if (isWatch && !watchStyle) {
+      watchStyle = document.createElement('style');
+      watchStyle.textContent = WATCH_CSS;
+      (document.head || document.documentElement).appendChild(watchStyle);
+    } else if (!isWatch && watchStyle) {
+      watchStyle.remove();
+      watchStyle = null;
+    }
+  };
+  updatePage();
+  setInterval(updatePage, 300);
 
   // 5. Skip automat dacă apare totuși o reclamă
   setInterval(() => {
