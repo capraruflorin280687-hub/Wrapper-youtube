@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var web: BgWebView
     private lateinit var root: FrameLayout
     private lateinit var adJs: String
+    private lateinit var filter: AdGuardFilter
     private var customView: View? = null
     private var customCallback: WebChromeClient.CustomViewCallback? = null
 
@@ -85,10 +86,13 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 33)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
 
-        // Serviciul rulează cât timp aplicația există, pornit cât încă e în prim-plan
         try {
             startForegroundService(Intent(this, KeepAliveService::class.java))
         } catch (e: Exception) { }
+
+        // Filtrul AdGuard DNS: se încarcă în fundal, fără să blocheze pornirea
+        filter = AdGuardFilter(applicationContext)
+        filter.start()
 
         adJs = assets.open("adblock.js").bufferedReader().readText()
         web = BgWebView(this)
@@ -123,7 +127,9 @@ class MainActivity : AppCompatActivity() {
             override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest): WebResourceResponse? {
                 val host = r.url.host ?: ""
                 val full = r.url.toString()
-                if (blockedHosts.any { host.endsWith(it) } || blockedPaths.any { full.contains(it) })
+                if (filter.isBlocked(host) ||
+                    blockedHosts.any { host.endsWith(it) } ||
+                    blockedPaths.any { full.contains(it) })
                     return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                 return null
             }
