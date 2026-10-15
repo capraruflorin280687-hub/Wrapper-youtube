@@ -41,7 +41,7 @@
     });
   } catch (e) {}
 
-  // 3. Reguli cosmetice
+  // 3. Reguli cosmetice: reclame
   const SELECTORS = [
     'ytm-promoted-sparkles-web-renderer', 'ytm-promoted-video-renderer',
     'ytm-companion-ad-renderer', 'ytm-ad-slot-renderer', 'ytm-statement-banner-renderer',
@@ -49,11 +49,24 @@
     '.ytp-ad-module', '#masthead-ad', 'ytm-rich-item-renderer:has(ytm-ad-slot-renderer)',
     'ytd-in-feed-ad-layout-renderer'
   ];
+
+  // 4. Bara de sus (YouTube / Deschide aplicația) + banner "deschide în aplicație"
+  const TOPBAR = [
+    'ytm-mobile-topbar-renderer', 'header.mobile-topbar-header', '.mobile-topbar-header',
+    'ytm-open-app-banner', 'ytm-app-promo-renderer', 'ytm-mealbar-promo-renderer',
+    'ytm-upsell-dialog-renderer'
+  ];
+
   const style = document.createElement('style');
-  style.textContent = SELECTORS.join(',') + '{display:none!important}';
+  style.textContent =
+    SELECTORS.join(',') + '{display:none!important}' +
+    TOPBAR.join(',') + '{display:none!important;height:0!important;min-height:0!important}' +
+    ':root{--ytm-topbar-height:0px!important;--ytm-mobile-topbar-height:0px!important}' +
+    'ytm-app,ytm-browse,ytm-watch,ytm-search,ytm-single-column-watch-next-results-renderer{padding-top:0!important;margin-top:0!important}' +
+    '#player-container-id,.player-container,#player,.sticky-player{top:0!important;margin-top:0!important}';
   (document.head || document.documentElement).appendChild(style);
 
-  // 4. Skip automat dacă apare totuși o reclamă
+  // 5. Skip automat dacă apare totuși o reclamă
   setInterval(() => {
     const p = document.querySelector('.html5-video-player');
     const v = document.querySelector('video');
