@@ -128,7 +128,6 @@ class MainActivity : AppCompatActivity() {
 
         adJs = assets.open("adblock.js").bufferedReader().readText()
         web = BgWebView(this)
-        web.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         web.addJavascriptInterface(PipBridge(), "AndroidPip")
         root = FrameLayout(this)
         root.setBackgroundColor(0xFF000000.toInt())
