@@ -1,6 +1,15 @@
 (function () {
   if (window.__ytw) return; window.__ytw = true;
 
+  // 0. Conexiuni anticipate către serverele folosite la încărcare
+  ['https://i.ytimg.com', 'https://www.gstatic.com', 'https://fonts.gstatic.com'].forEach(u => {
+    try {
+      const l = document.createElement('link');
+      l.rel = 'preconnect'; l.href = u; l.crossOrigin = '';
+      (document.head || document.documentElement).appendChild(l);
+    } catch (e) {}
+  });
+
   // 1. Redare în fundal
   try {
     Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
@@ -32,7 +41,10 @@
   };
 
   const _rj = Response.prototype.json;
-  Response.prototype.json = function () { return _rj.call(this).then(strip); };
+  Response.prototype.json = function () {
+    const p = _rj.call(this);
+    return (this.url && this.url.indexOf('/youtubei/v1/') !== -1) ? p.then(strip) : p;
+  };
 
   let _ipr;
   try {
@@ -123,7 +135,6 @@
     const dy = e.touches[0].clientY - sy;
     const vertical = dy > 25 && Math.abs(dx) < dy * 0.6;
     if (!vertical) return;
-    // Oprește gestul propriu YouTube (minimizare player)
     e.stopPropagation();
     e.preventDefault();
     if (!fired && dy > 110) {
@@ -132,16 +143,20 @@
     }
   }, { capture: true, passive: false });
 
-  // 7. Skip automat dacă apare totuși o reclamă
+  // 7. Sărire rapidă peste reclame (doar pe pagina video)
   setInterval(() => {
+    if (location.pathname !== '/watch') return;
     const p = document.querySelector('.html5-video-player');
-    const v = document.querySelector('video');
-    if (p && v && p.classList.contains('ad-showing')) {
-      v.muted = true;
-      if (isFinite(v.duration)) v.currentTime = v.duration;
-      v.playbackRate = 16;
+    if (!p) return;
+    if (p.classList.contains('ad-showing') || p.classList.contains('ad-interrupting')) {
+      const v = document.querySelector('video');
+      if (v) {
+        v.muted = true;
+        if (isFinite(v.duration) && v.duration > 0) v.currentTime = v.duration;
+        v.playbackRate = 16;
+      }
+      document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button')
+        .forEach(b => b.click());
     }
-    document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button')
-      .forEach(b => b.click());
-  }, 400);
+  }, 150);
 })();
