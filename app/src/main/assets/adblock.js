@@ -79,7 +79,60 @@
   updatePage();
   setInterval(updatePage, 300);
 
-  // 5. Skip automat dacă apare totuși o reclamă
+  // 5. PiP: în fereastra mică, video-ul umple tot ecranul și fără controale
+  const PIP_CSS =
+    'html,body{overflow:hidden!important;background:#000!important}' +
+    'video{position:fixed!important;top:0!important;left:0!important;width:100vw!important;' +
+      'height:100vh!important;z-index:2147483647!important;object-fit:contain!important;' +
+      'background:#000!important}' +
+    '.ytp-chrome-top,.ytp-chrome-bottom,.ytp-gradient-top,.ytp-gradient-bottom,' +
+      '.ytp-pause-overlay,.ytp-ce-element,.ytp-cards-teaser,.ytp-paid-content-overlay' +
+      '{display:none!important}';
+
+  let pipStyle = null;
+  window.__ytwPip = on => {
+    if (on && !pipStyle) {
+      pipStyle = document.createElement('style');
+      pipStyle.textContent = PIP_CSS;
+      (document.head || document.documentElement).appendChild(pipStyle);
+    } else if (!on && pipStyle) {
+      pipStyle.remove();
+      pipStyle = null;
+    }
+  };
+
+  // 6. Gest: atingi playerul și tragi în jos => PiP
+  let sx = 0, sy = 0, tracking = false, fired = false;
+  const inPlayer = t => t && t.closest &&
+    t.closest('#player-container-id,#player,.html5-video-player,.player-container,ytm-player');
+  const isSeek = t => t && t.closest &&
+    t.closest('.ytp-progress-bar-container,.ytp-chapter-hover-container,.ytp-scrubber-container');
+
+  document.addEventListener('touchstart', e => {
+    tracking = false; fired = false;
+    if (location.pathname !== '/watch' || e.touches.length !== 1) return;
+    if (!inPlayer(e.target) || isSeek(e.target)) return;
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+    tracking = true;
+  }, { capture: true, passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!tracking) return;
+    const dx = e.touches[0].clientX - sx;
+    const dy = e.touches[0].clientY - sy;
+    const vertical = dy > 25 && Math.abs(dx) < dy * 0.6;
+    if (!vertical) return;
+    // Oprește gestul propriu YouTube (minimizare player)
+    e.stopPropagation();
+    e.preventDefault();
+    if (!fired && dy > 110) {
+      fired = true;
+      if (document.querySelector('video') && window.AndroidPip) window.AndroidPip.enter();
+    }
+  }, { capture: true, passive: false });
+
+  // 7. Skip automat dacă apare totuși o reclamă
   setInterval(() => {
     const p = document.querySelector('.html5-video-player');
     const v = document.querySelector('video');
