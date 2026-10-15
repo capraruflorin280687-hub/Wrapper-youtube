@@ -2,10 +2,13 @@ package com.example.ytwrap
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import android.view.View
 import android.view.WindowManager
 import android.webkit.*
@@ -37,6 +40,36 @@ class MainActivity : AppCompatActivity() {
         "doubleclick.net", "googlesyndication.com", "googleadservices.com"
     )
     private val blockedPaths = listOf("/pagead/", "/api/stats/ads", "&ad_type=")
+
+    /** Apelat din JavaScript când tragi de player în jos. */
+    inner class PipBridge {
+        @JavascriptInterface
+        fun enter() {
+            runOnUiThread { enterPip() }
+        }
+    }
+
+    private fun enterPip() {
+        if (Build.VERSION.SDK_INT < 26) return
+        try {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9))
+                .build()
+            enterPictureInPictureMode(params)
+        } catch (e: Exception) { }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        web.evaluateJavascript(
+            "window.__ytwPip && window.__ytwPip($isInPictureInPictureMode)", null
+        )
+        if (!isInPictureInPictureMode) goImmersive()
+    }
 
     private val chrome = object : WebChromeClient() {
         override fun onShowCustomView(view: View, cb: CustomViewCallback) {
@@ -90,13 +123,13 @@ class MainActivity : AppCompatActivity() {
             startForegroundService(Intent(this, KeepAliveService::class.java))
         } catch (e: Exception) { }
 
-        // Filtrul AdGuard DNS: se încarcă în fundal, fără să blocheze pornirea
         filter = AdGuardFilter(applicationContext)
         filter.start()
 
         adJs = assets.open("adblock.js").bufferedReader().readText()
         web = BgWebView(this)
         web.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        web.addJavascriptInterface(PipBridge(), "AndroidPip")
         root = FrameLayout(this)
         root.setBackgroundColor(0xFF000000.toInt())
         root.addView(web, FrameLayout.LayoutParams(-1, -1))
