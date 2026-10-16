@@ -63,17 +63,15 @@
     'ytm-mealbar-promo-renderer', 'ytm-upsell-dialog-renderer'
   ];
 
-  // Mini-player în aplicație: playerul se micșorează în colțul din dreapta-jos
+  // Mini-player în aplicație: playerul își păstrează mărimea reală, doar se scalează
   const MINI_CSS =
-    'html.ytw-mini #player-container-id,html.ytw-mini .player-container{' +
+    'html.ytw-mini .ytw-miniel{' +
       'position:fixed!important;right:8px!important;bottom:72px!important;left:auto!important;' +
-      'top:auto!important;width:52vw!important;height:29.25vw!important;margin:0!important;' +
-      'z-index:2147483000!important;border-radius:8px!important;overflow:hidden!important;' +
-      'box-shadow:0 4px 18px rgba(0,0,0,.7)!important;background:#000!important}' +
-    'html.ytw-mini #player,html.ytw-mini .html5-video-player,html.ytw-mini ytm-player{' +
-      'width:100%!important;height:100%!important;top:0!important;left:0!important}' +
-    'html.ytw-mini video{width:100%!important;height:100%!important;top:0!important;' +
-      'left:0!important;object-fit:contain!important}' +
+      'top:auto!important;width:var(--ytw-w)!important;height:var(--ytw-h)!important;' +
+      'margin:0!important;transform-origin:100% 100%!important;' +
+      'transform:scale(var(--ytw-s))!important;z-index:2147483000!important;' +
+      'border-radius:14px!important;overflow:hidden!important;background:#000!important;' +
+      'box-shadow:0 4px 18px rgba(0,0,0,.7)!important;will-change:transform}' +
     'html.ytw-mini .ytp-chrome-top,html.ytw-mini .ytp-chrome-bottom,' +
     'html.ytw-mini .ytp-gradient-top,html.ytw-mini .ytp-gradient-bottom,' +
     'html.ytw-mini .ytp-pause-overlay,html.ytw-mini .ytp-ce-element,' +
@@ -97,7 +95,34 @@
   let watchStyle = null;
   let lastVideo = '';
   const root = document.documentElement;
-  const setMini = on => { root.classList.toggle('ytw-mini', !!on); };
+  let miniEl = null;
+  const enterMini = () => {
+    const el = document.querySelector('#player-container-id') || document.querySelector('.player-container');
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width < 50 || r.height < 50) return false;
+    const s = Math.min(0.55, (window.innerWidth * 0.5) / r.width);
+    el.style.setProperty('--ytw-w', r.width + 'px');
+    el.style.setProperty('--ytw-h', r.height + 'px');
+    el.style.setProperty('--ytw-s', s.toFixed(3));
+    el.classList.add('ytw-miniel');
+    root.classList.add('ytw-mini');
+    miniEl = el;
+    return true;
+  };
+  const exitMini = () => {
+    root.classList.remove('ytw-mini');
+    if (miniEl) {
+      miniEl.classList.remove('ytw-miniel');
+      ['--ytw-w', '--ytw-h', '--ytw-s'].forEach(p => miniEl.style.removeProperty(p));
+      miniEl = null;
+    }
+    [60, 350].forEach(t => setTimeout(() => window.dispatchEvent(new Event('resize')), t));
+  };
+  const setMini = on => {
+    if (on) return enterMini();
+    if (root.classList.contains('ytw-mini')) exitMini();
+  };
 
   const updatePage = () => {
     const isWatch = location.pathname === '/watch';
@@ -145,7 +170,6 @@
     if (!fired && dy > 90) {
       fired = true;
       setMini(true);
-      setTimeout(() => { try { window.scrollTo({ top: 420, behavior: 'smooth' }); } catch (x) {} }, 80);
     }
   }, { capture: true, passive: false });
 
