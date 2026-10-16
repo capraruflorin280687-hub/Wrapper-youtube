@@ -1,6 +1,10 @@
 (function () {
   if (window.__ytw) return; window.__ytw = true;
 
+  // MOD: 'skip'  = nu atinge datele YouTube, doar sare rapid peste reclame (recomandat, mai rapid)
+  //      'strip' = șterge reclamele din date (metoda veche, poate încetini pornirea)
+  const MODE = 'skip';
+
   // 0. Conexiuni anticipate către serverele folosite la încărcare
   ['https://i.ytimg.com', 'https://www.gstatic.com', 'https://fonts.gstatic.com'].forEach(u => {
     try {
@@ -33,6 +37,7 @@
     return o;
   };
 
+  if (MODE === 'strip') {
   const _parse = JSON.parse;
   JSON.parse = function () {
     const r = _parse.apply(this, arguments);
@@ -52,6 +57,7 @@
       get: () => _ipr, set: v => { _ipr = strip(v); }, configurable: true
     });
   } catch (e) {}
+  }
 
   // 3. Reguli cosmetice permanente: reclame și bannere "deschide aplicația"
   const ALWAYS = [
@@ -87,6 +93,7 @@
     return hasAd(ep) || hasAd(e.reelWatchEndpoint) ||
       hasAd(e.command && e.command.reelWatchEndpoint) || hasAd(e.ad);
   };
+  if (MODE === 'strip') {
   const _fetch = window.fetch;
   window.fetch = function (input) {
     const p = _fetch.apply(this, arguments);
@@ -107,6 +114,7 @@
       } catch (e) { return res; }
     });
   };
+  }
 
   // 3c. Ascunde butoanele "Deschide aplicația" din bară și din dialoguri (după Litube)
   const APP_LABELS = [
@@ -143,7 +151,8 @@
     'html.ytw-mini .ytp-cards-teaser,html.ytw-mini .ytp-paid-content-overlay{display:none!important}';
 
   const base = document.createElement('style');
-  base.textContent = ALWAYS.join(',') + '{display:none!important}' + MINI_CSS;
+  base.textContent = ALWAYS.join(',') + '{display:none!important}' + MINI_CSS +
+    (MODE === 'skip' ? '.ad-showing video,.ad-interrupting video{opacity:0!important}' : '');
   (document.head || document.documentElement).appendChild(base);
 
   // 4. Reguli DOAR pentru pagina video: se adaugă pe /watch, se scot în rest
@@ -249,20 +258,26 @@
     }
   }, true);
 
-  // 6. Sărire rapidă peste reclame (doar pe pagina video)
+  // 6. Sărire rapidă peste reclame (doar pe pagina video); restaurează sunetul și viteza după
+  let adWas = null;
   setInterval(() => {
     if (location.pathname !== '/watch') return;
     const p = document.querySelector('.html5-video-player');
     if (!p) return;
-    if (p.classList.contains('ad-showing') || p.classList.contains('ad-interrupting')) {
-      const v = document.querySelector('video');
+    const v = document.querySelector('video');
+    const isAd = p.classList.contains('ad-showing') || p.classList.contains('ad-interrupting');
+    if (isAd) {
       if (v) {
+        if (!adWas) adWas = { muted: v.muted, rate: v.playbackRate };
         v.muted = true;
         if (isFinite(v.duration) && v.duration > 0) v.currentTime = v.duration;
         v.playbackRate = 16;
       }
       document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button')
         .forEach(b => b.click());
+    } else if (adWas) {
+      if (v) { v.muted = adWas.muted; v.playbackRate = adWas.rate || 1; }
+      adWas = null;
     }
   }, 150);
 })();
