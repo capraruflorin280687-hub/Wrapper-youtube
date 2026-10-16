@@ -1,9 +1,9 @@
 (function () {
   if (window.__ytw) return; window.__ytw = true;
 
-  // MOD: 'skip'  = nu atinge datele YouTube, doar sare rapid peste reclame (recomandat, mai rapid)
-  //      'strip' = șterge reclamele din date (metoda veche, poate încetini pornirea)
-  const MODE = 'skip';
+  // MOD: 'skip'  = nu atinge datele YouTube, doar sare rapid peste reclame (nu merge bine)
+  //      'strip' = șterge reclamele din date (metoda care redă video-urile)
+  const MODE = 'strip';
 
   // 0. Conexiuni anticipate către serverele folosite la încărcare
   ['https://i.ytimg.com', 'https://www.gstatic.com', 'https://fonts.gstatic.com'].forEach(u => {
