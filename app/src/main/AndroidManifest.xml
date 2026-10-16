@@ -12,8 +12,10 @@
         android:hardwareAccelerated="true"
         android:usesCleartextTraffic="false"
         android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
+        <meta-data
+            android:name="android.webkit.WebView.EnableSafeBrowsing"
+            android:value="false"/>
         <activity android:name=".MainActivity" android:exported="true"
-            android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
