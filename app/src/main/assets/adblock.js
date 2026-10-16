@@ -62,8 +62,25 @@
     'ytd-in-feed-ad-layout-renderer', 'ytm-open-app-banner', 'ytm-app-promo-renderer',
     'ytm-mealbar-promo-renderer', 'ytm-upsell-dialog-renderer'
   ];
+
+  // Mini-player în aplicație: playerul se micșorează în colțul din dreapta-jos
+  const MINI_CSS =
+    'html.ytw-mini #player-container-id,html.ytw-mini .player-container{' +
+      'position:fixed!important;right:8px!important;bottom:72px!important;left:auto!important;' +
+      'top:auto!important;width:52vw!important;height:29.25vw!important;margin:0!important;' +
+      'z-index:2147483000!important;border-radius:8px!important;overflow:hidden!important;' +
+      'box-shadow:0 4px 18px rgba(0,0,0,.7)!important;background:#000!important}' +
+    'html.ytw-mini #player,html.ytw-mini .html5-video-player,html.ytw-mini ytm-player{' +
+      'width:100%!important;height:100%!important;top:0!important;left:0!important}' +
+    'html.ytw-mini video{width:100%!important;height:100%!important;top:0!important;' +
+      'left:0!important;object-fit:contain!important}' +
+    'html.ytw-mini .ytp-chrome-top,html.ytw-mini .ytp-chrome-bottom,' +
+    'html.ytw-mini .ytp-gradient-top,html.ytw-mini .ytp-gradient-bottom,' +
+    'html.ytw-mini .ytp-pause-overlay,html.ytw-mini .ytp-ce-element,' +
+    'html.ytw-mini .ytp-cards-teaser,html.ytw-mini .ytp-paid-content-overlay{display:none!important}';
+
   const base = document.createElement('style');
-  base.textContent = ALWAYS.join(',') + '{display:none!important}';
+  base.textContent = ALWAYS.join(',') + '{display:none!important}' + MINI_CSS;
   (document.head || document.documentElement).appendChild(base);
 
   // 4. Reguli DOAR pentru pagina video: se adaugă pe /watch, se scot în rest
@@ -73,10 +90,15 @@
     ':root{--ytm-topbar-height:0px!important;--ytm-mobile-topbar-height:0px!important}' +
     'ytm-app,ytm-watch,ytm-single-column-watch-next-results-renderer' +
       '{padding-top:0!important;margin-top:0!important}' +
-    '#player-container-id,.player-container,#player,.sticky-player' +
+    'html:not(.ytw-mini) #player-container-id,html:not(.ytw-mini) .player-container,' +
+    'html:not(.ytw-mini) #player,html:not(.ytw-mini) .sticky-player' +
       '{top:0!important;margin-top:0!important}';
 
   let watchStyle = null;
+  let lastVideo = '';
+  const root = document.documentElement;
+  const setMini = on => { root.classList.toggle('ytw-mini', !!on); };
+
   const updatePage = () => {
     const isWatch = location.pathname === '/watch';
     if (isWatch && !watchStyle) {
@@ -87,33 +109,15 @@
       watchStyle.remove();
       watchStyle = null;
     }
+    // Alt video sau altă pagină => ieșim din modul mini
+    const vid = isWatch ? location.search : '';
+    if (vid !== lastVideo) { lastVideo = vid; setMini(false); }
+    if (!isWatch) setMini(false);
   };
   updatePage();
   setInterval(updatePage, 300);
 
-  // 5. PiP: în fereastra mică, video-ul umple tot ecranul și fără controale
-  const PIP_CSS =
-    'html,body{overflow:hidden!important;background:#000!important}' +
-    'video{position:fixed!important;top:0!important;left:0!important;width:100vw!important;' +
-      'height:100vh!important;z-index:2147483647!important;object-fit:contain!important;' +
-      'background:#000!important}' +
-    '.ytp-chrome-top,.ytp-chrome-bottom,.ytp-gradient-top,.ytp-gradient-bottom,' +
-      '.ytp-pause-overlay,.ytp-ce-element,.ytp-cards-teaser,.ytp-paid-content-overlay' +
-      '{display:none!important}';
-
-  let pipStyle = null;
-  window.__ytwPip = on => {
-    if (on && !pipStyle) {
-      pipStyle = document.createElement('style');
-      pipStyle.textContent = PIP_CSS;
-      (document.head || document.documentElement).appendChild(pipStyle);
-    } else if (!on && pipStyle) {
-      pipStyle.remove();
-      pipStyle = null;
-    }
-  };
-
-  // 6. Gest: atingi playerul și tragi în jos => PiP
+  // 5. Gest: atingi playerul și tragi în jos => mini-player în aplicație
   let sx = 0, sy = 0, tracking = false, fired = false;
   const inPlayer = t => t && t.closest &&
     t.closest('#player-container-id,#player,.html5-video-player,.player-container,ytm-player');
@@ -123,6 +127,7 @@
   document.addEventListener('touchstart', e => {
     tracking = false; fired = false;
     if (location.pathname !== '/watch' || e.touches.length !== 1) return;
+    if (root.classList.contains('ytw-mini')) return;
     if (!inPlayer(e.target) || isSeek(e.target)) return;
     sx = e.touches[0].clientX;
     sy = e.touches[0].clientY;
@@ -137,13 +142,25 @@
     if (!vertical) return;
     e.stopPropagation();
     e.preventDefault();
-    if (!fired && dy > 110) {
+    if (!fired && dy > 90) {
       fired = true;
-      if (document.querySelector('video') && window.AndroidPip) window.AndroidPip.enter();
+      setMini(true);
+      setTimeout(() => { try { window.scrollTo({ top: 420, behavior: 'smooth' }); } catch (x) {} }, 80);
     }
   }, { capture: true, passive: false });
 
-  // 7. Sărire rapidă peste reclame (doar pe pagina video)
+  // Apăsare pe mini-player => revine pe ecran mare
+  document.addEventListener('click', e => {
+    if (!root.classList.contains('ytw-mini')) return;
+    if (inPlayer(e.target)) {
+      e.stopPropagation();
+      e.preventDefault();
+      setMini(false);
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (x) {}
+    }
+  }, true);
+
+  // 6. Sărire rapidă peste reclame (doar pe pagina video)
   setInterval(() => {
     if (location.pathname !== '/watch') return;
     const p = document.querySelector('.html5-video-player');
