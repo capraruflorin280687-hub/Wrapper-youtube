@@ -60,8 +60,73 @@
     'ytd-ad-slot-renderer', 'ytd-promoted-sparkles-web-renderer', '.ytp-ad-overlay-container',
     '.ytp-ad-module', '#masthead-ad', 'ytm-rich-item-renderer:has(ytm-ad-slot-renderer)',
     'ytd-in-feed-ad-layout-renderer', 'ytm-open-app-banner', 'ytm-app-promo-renderer',
-    'ytm-mealbar-promo-renderer', 'ytm-upsell-dialog-renderer'
+    'ytm-mealbar-promo-renderer', 'ytm-upsell-dialog-renderer',
+    // adăugate după Litube (ads.js)
+    'ad-slot-renderer', 'ytd-display-ad-renderer', 'ytm-promoted-sparkles-web-renderer',
+    'ytm-app-install-ad-renderer', 'ytm-open-in-app-renderer', 'yt-mealbar-promo-renderer',
+    '.video-ads.ytp-ad-module', '#player-ads', '#related #player-ads',
+    'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
+    'tp-yt-paper-dialog:has(yt-mealbar-promo-renderer)',
+    'ytd-rich-item-renderer:has(ytd-display-ad-renderer)',
+    'ytm-mobile-topbar-renderer a[href^="intent:"][href*="package=com.google.android.youtube;"]',
+    'ytm-mobile-topbar-renderer a[href^="vnd.youtube:"]',
+    'ytm-mobile-topbar-renderer a[href^="youtube:"]'
   ];
+
+  // 3b. Reclame în Shorts: filtrăm răspunsul reel_watch_sequence (după Litube)
+  const isObj = v => v !== null && typeof v === 'object';
+  const hasAd = n => {
+    if (!isObj(n)) return false;
+    if (Array.isArray(n)) return n.some(hasAd);
+    return !!(n.adClientParams || n.adPlacements || n.adSlots || n.adBreakHeartbeatParams || n.adSlotRenderer);
+  };
+  const isAdEntry = e => {
+    if (!isObj(e)) return false;
+    if (hasAd(e)) return true;
+    const ep = e.command || e.navigationEndpoint || e.reelWatchEndpoint;
+    return hasAd(ep) || hasAd(e.reelWatchEndpoint) ||
+      hasAd(e.command && e.command.reelWatchEndpoint) || hasAd(e.ad);
+  };
+  const _fetch = window.fetch;
+  window.fetch = function (input) {
+    const p = _fetch.apply(this, arguments);
+    const u = typeof input === 'string' ? input : (input && input.url) || '';
+    if (u.indexOf('/youtubei/v1/reel/reel_watch_sequence') === -1) return p;
+    return p.then(async res => {
+      if (res.status === 204 || res.status === 205 || res.status === 304) return res;
+      try {
+        const text = await res.clone().text();
+        const json = JSON.parse(text);
+        if (Array.isArray(json.entries)) json.entries = json.entries.filter(e => !isAdEntry(e));
+        if (isObj(json.playerResponse)) strip(json.playerResponse);
+        const body = JSON.stringify(json);
+        if (body === text) return res;
+        const h = new Headers(res.headers);
+        h.delete('content-length');
+        return new Response(body, { status: res.status, statusText: res.statusText, headers: h });
+      } catch (e) { return res; }
+    });
+  };
+
+  // 3c. Ascunde butoanele "Deschide aplicația" din bară și din dialoguri (după Litube)
+  const APP_LABELS = [
+    'open app', 'open in app', 'open in the app', 'use app', 'use the app',
+    'deschide aplicația', 'deschide aplicatia', 'deschide în aplicație', 'deschide in aplicatie'
+  ];
+  const norm = s => String(s || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+  const hideAppButtons = () => {
+    const surfaces = document.querySelectorAll(
+      'ytm-mobile-topbar-renderer,ytm-mobile-app-bar,#masthead,[role="dialog"],ytm-dialog,tp-yt-paper-dialog,bottom-sheet-layout');
+    for (let i = 0; i < surfaces.length; i++) {
+      const ctrls = surfaces[i].querySelectorAll('a,button,[role="button"]');
+      for (let j = 0; j < ctrls.length; j++) {
+        const c = ctrls[j];
+        const labels = [norm(c.getAttribute('aria-label')), norm(c.textContent)];
+        if (labels.some(l => APP_LABELS.indexOf(l) !== -1)) c.style.setProperty('display', 'none', 'important');
+      }
+    }
+  };
+  setInterval(hideAppButtons, 1000);
 
   // Mini-player în aplicație: playerul își păstrează mărimea reală, doar se scalează
   const MINI_CSS =
